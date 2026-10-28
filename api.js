@@ -122,3 +122,59 @@ loadBtn.addEventListener("click", handleLoad);
 
 // show the empty message when the page first opens
 render();
+
+// POST - creates a note
+function createNote(title, body) {
+  return request(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: title, body: body, userId: 1 }),
+  });
+}
+
+// runs when the form is submitted
+async function handleSubmit(event) {
+  event.preventDefault(); // stop the page from reloading
+
+  const title = titleInput.value.trim();
+  const body = bodyInput.value.trim();
+
+  // check the title before sending anything (the body is optional)
+  if (title === "") {
+    showStatus("Please enter a title.", "error");
+    return;
+  }
+  if (title.length > 100) {
+    showStatus("The title must be 100 characters or fewer.", "error");
+    return;
+  }
+
+  showStatus("Saving the note...", "loading");
+  setBusy(true);
+
+  try {
+    const result = await createNote(title, body);
+    const created = result.data;
+
+    // the server sends the note back with a new id, so I show it at the top
+    notes.unshift({
+      key: `new-${Date.now()}`,
+      id: created.id,
+      title: created.title,
+      body: created.body,
+      isLocal: true,
+    });
+
+    render();
+    showStatus(`Note created (status ${result.status}, id ${created.id}).`, "success");
+    form.reset(); // clear the form
+    titleInput.focus();
+  } catch (error) {
+    showStatus("Could not create the note. Please try again.", "error");
+    console.error(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+form.addEventListener("submit", handleSubmit);
