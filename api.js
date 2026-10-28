@@ -70,7 +70,7 @@ function render() {
     const info = document.createElement("div");
 
     const title = document.createElement("h3");
-    title.textContent = note.title; // textContent only, never innerHTML
+    title.textContent = note.title; 
 
     const body = document.createElement("p");
     body.textContent = note.body;
@@ -78,8 +78,13 @@ function render() {
     info.appendChild(title);
     info.appendChild(body);
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
+    deleteBtn.classList.add("delete-btn");
+    deleteBtn.dataset.key = note.key;
+
     li.appendChild(info);
-    // the Delete button gets added here in Task 3
+    li.appendChild(deleteBtn);
     list.appendChild(li);
   });
 }
@@ -139,7 +144,6 @@ async function handleSubmit(event) {
   const title = titleInput.value.trim();
   const body = bodyInput.value.trim();
 
-  // check the title before sending anything (the body is optional)
   if (title === "") {
     showStatus("Please enter a title.", "error");
     return;
@@ -178,3 +182,55 @@ async function handleSubmit(event) {
 }
 
 form.addEventListener("submit", handleSubmit);
+
+// DELETE - removes a note from the server
+function deleteNote(id) {
+  return request(`${API_URL}/${id}`, { method: "DELETE" });
+}
+
+// runs when anything in the list is clicked (one listener for every Delete button)
+async function handleDelete(event) {
+  if (!event.target.classList.contains("delete-btn")) {
+    return;
+  }
+
+  const key = event.target.dataset.key;
+  const note = notes.find((n) => n.key === key);
+  if (!note) {
+    return;
+  }
+
+  /*
+    How I handle the fake server:
+    JSONPlaceholder never really saves the notes I create, so a note I just
+    created does not exist on the server and there is nothing to delete there.
+    For those notes I only remove them from the list and I do not send a request.
+    Notes that were loaded from the server do get a real DELETE request, and it
+    replies with status 200. But the server only pretends to delete them, so
+    they come back when I click Load notes again. That is normal for this
+    practice API.
+  */
+  if (note.isLocal) {
+    notes = notes.filter((n) => n.key !== key);
+    render();
+    showStatus("Note removed. It was never saved on the server, so no request was sent.", "success");
+    return;
+  }
+
+  showStatus("Deleting the note...", "loading");
+  setBusy(true);
+
+  try {
+    const result = await deleteNote(note.id);
+    notes = notes.filter((n) => n.key !== key);
+    render();
+    showStatus(`Note deleted (status ${result.status}).`, "success");
+  } catch (error) {
+    showStatus("Could not delete the note. Please try again.", "error");
+    console.error(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+list.addEventListener("click", handleDelete);
